@@ -55,8 +55,8 @@ Built on FastAPI's asynchronous foundation and equipped with specialized connect
 
 1. Grab the code:
    ```bash
-   git clone https://github.com/your-username/comfyapi.git
-   cd comfyapi
+   git clone https://github.com/piewared/ComfyAPI.git
+   cd ComfyAPI
    ```
 
 2. Set up your Python playground:
