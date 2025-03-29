@@ -1,0 +1,57 @@
+{
+  "1": {
+    "inputs": {
+      "input_id": "https://www.thecarycompany.com/media/catalog/product/7/5/750-ml-emerald-green-champagne-bottle.jpg",
+      "display_name": "",
+      "description": "",
+      "default_value_url": ""
+    },
+    "class_type": "ComfyUIDeployExternalImage",
+    "_meta": {
+      "title": "External Image (ComfyUI Deploy)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "upscale_by": 0.25,
+      "upscale_method": "nearest-exact",
+      "crop": "disabled",
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "DF_Image_scale_by_ratio",
+    "_meta": {
+      "title": "Image scale by ratio"
+    }
+  },
+  "3": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "file_type": "png",
+      "quality": 80,
+      "output_id": "output_images",
+      "images": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "ComfyDeployOutputImage",
+    "_meta": {
+      "title": "Image Output (ComfyDeploy)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "input_id": "input_text",
+      "default_value": "",
+      "display_name": "",
+      "description": ""
+    },
+    "class_type": "ComfyUIDeployExternalText",
+    "_meta": {
+      "title": "External Text (ComfyUI Deploy)"
+    }
+  }
+}
