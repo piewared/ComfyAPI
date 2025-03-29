@@ -1,14 +1,14 @@
-# ComfyAPI 🚀
+# ComfyAPI
 
 A friendly FastAPI-based service that provides REST API and WebSocket interfaces to ComfyUI, making it easy to run AI image generation workflows remotely.
 
-## What's This All About? 🤔
+## What's This All About?
 
 ComfyAPI sits between your applications and ComfyUI, handling the communication details so you can focus on creating images. It manages process lifecycles and connections behind the scenes.
 
 ComfyUI has powerful capabilities, but its communication protocols can be complex. This project bridges that gap by providing a simple standardize REST interface that applications can use. Whether you're working with web apps, mobile services, or automation scripts, ComfyAPI simplifies the integration.
 
-### How It Works 🔌
+### How It Works
 
 ComfyAPI connects your applications to ComfyUI through several components:
 
@@ -45,7 +45,7 @@ Built on FastAPI's asynchronous foundation and equipped with specialized connect
 └── .env.sample              # Template configuration file
 ```
 
-## Before You Dive In 🏊
+## Requirements 🏊
 
 - Python 3.9+ 
 - ComfyUI installed and ready to go
@@ -59,18 +59,18 @@ Built on FastAPI's asynchronous foundation and equipped with specialized connect
    cd ComfyAPI
    ```
 
-2. Set up your Python playground:
+2. Set up your Python virtual environment:
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
-3. Get the ingredients:
+3. Install python dependencies
    ```bash
    pip install -r requirements.txt
    ```
 
-4. Create your secret recipe:
+4. Copy the provided .env template:
    ```bash
    cp .env.sample .env
    ```
