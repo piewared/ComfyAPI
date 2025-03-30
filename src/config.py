@@ -22,7 +22,9 @@ class ComfyUISettings(BaseSettings):
     @computed_field  # type: ignore
     @property
     def interpreter_path(self) -> Path:
-        return self.base_path / "venv/bin/python"
+        venv_path = self.base_path / ".venv/bin/python"
+        alt_path = self.base_path / "venv/bin/python"
+        return venv_path if venv_path.exists() else alt_path
 
     @computed_field  # type: ignore
     @property
