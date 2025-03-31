@@ -17,26 +17,33 @@ DOTENV = get_absolute_path(".env")
 class ComfyUISettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='comfyui_', env_file=DOTENV, extra="ignore")
 
-    base_path: Path
+    instance_path: Path
+    workspace_path: Path
     listen_port: int = Field(default=8188, description="Port to listen on.")
     listen_address: str = Field(default="localhost", description="Address to listen on.")
 
     @computed_field  # type: ignore
     @property
     def interpreter_path(self) -> Path:
-        venv_path = self.base_path / ".venv/bin/python"
-        alt_path = self.base_path / "venv/bin/python"
+        venv_path = self.instance_path / ".venv/bin/python"
+        alt_path = self.instance_path / "venv/bin/python"
         return venv_path if venv_path.exists() else alt_path
 
     @computed_field  # type: ignore
     @property
     def main_path(self) -> Path:
-        return self.base_path / "main.py"
+        return self.instance_path / "main.py"
 
     @computed_field  # type: ignore
     @property
     def workflows_path(self) -> Path:
-        return self.base_path / "user" / "default" / "workflows"
+        return self.workspace_path / "user" / "default" / "workflows"
+
+    @computed_field  # type: ignore
+    @property
+    def models_path(self) -> Path:
+        return self.workspace_path / "models"
+
 
 
 class AppSettings(BaseSettings):

@@ -22,9 +22,10 @@ services:
     env_file:
       - .env
     environment:
-      COMFYUI_BASE_PATH: '/app/ComfyUI'
+      COMFYUI_INSTANCE_PATH: '/app/ComfyUI'
+      COMFYUI_WORKSPACE_PATH: '/app/comfyui_workspace'
     volumes:
-      - ./workflows:/app/ComfyAPI/workflows
+      - ${COMFYUI_WORKSPACE_PATH}:/app/comfyui_workspace
     healthcheck:
       test: [ "CMD-SHELL", "wget --spider --quiet http://${APP_LISTEN_ADDRESS:-0.0.0.0}:${APP_LISTEN_PORT:-8000}/docs || exit 1" ]
       interval: 30s

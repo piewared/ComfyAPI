@@ -77,6 +77,7 @@ class ComfyUIManager:
                     self.python_path,
                     self.main_script, '--listen', comfyui_settings.listen_address,
                     '--port', str(comfyui_settings.listen_port),
+                    '--base-directory', str(comfyui_settings.workspace_path),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
