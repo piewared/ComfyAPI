@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Install system dependencies (git for ComfyUI, ffmpeg for video processing)
 RUN apt-get update && \
-    apt-get install -y git ffmpeg libsm6 libxext6 wget build-essential && \
+    apt-get install -y git ffmpeg libsm6 libxext6 wget build-essential cmake && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
