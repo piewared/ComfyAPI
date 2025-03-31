@@ -1,11 +1,12 @@
 FROM python:3.12-slim
+RUN --mount=type=cache,target=/root/.cache/pip pip install pyyaml
 
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies (git for ComfyUI, ffmpeg for video processing)
 RUN apt-get update && \
-    apt-get install -y git ffmpeg libsm6 libxext6 wget && \
+    apt-get install -y git ffmpeg libsm6 libxext6 wget build-essential && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -37,15 +38,21 @@ COPY . /app/ComfyAPI
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables
-ENV COMFYUI_BASE_PATH=/app/ComfyUI
+ENV COMFYUI_INSTANCE_PATH=/app/ComfyUI
+ENV COMFYUI_WORKSPACE_PATH=/app/ComfyUI
 ENV PYTHONPATH=/app/ComfyAPI
+
+# Copy the entrypoint script
+RUN chmod +x /app/ComfyAPI/docker_entrypoint.sh
+
+# Set it as the entrypoint
+ENTRYPOINT ["/app/ComfyAPI/docker_entrypoint.sh"]
 
 # Create directory for workflows
 RUN mkdir -p /app/ComfyAPI/workflows
 
 # Expose port for ComfyAPI and ComfyUI
 EXPOSE 8000 8001
-
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \

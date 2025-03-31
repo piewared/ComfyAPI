@@ -360,6 +360,20 @@ class ComfyUIManager:
 
         raise ConnectionError("Failed to connect to backend after multiple attempts.")
 
+async def ensure_node_reqs():
+    python_path = comfyui_settings.interpreter_path
+    # Go through all the node directories under 'custom_nodes' in comfyui_settings.workspace_path, and pip install the requirements.txt file if it exists.
+    for node_dir in (comfyui_settings.workspace_path / "custom_nodes").iterdir():
+        if node_dir.is_dir():
+            requirements_file = node_dir / "requirements.txt"
+            if requirements_file.exists():
+                logger.info(f"Installing requirements for {node_dir.name}")
+                cmd = [str(python_path), "-m", "pip", "install", "-r", str(requirements_file)]
+                process = await asyncio.create_subprocess_exec(*cmd)
+                await process.wait()
+                if process.returncode != 0:
+                    logger.error(f"Failed to install requirements for {node_dir.name}")
+
 
 @lru_cache(maxsize=1)
 def get_manager() -> ComfyUIManager:
