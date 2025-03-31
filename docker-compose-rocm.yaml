@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  comfyapi-rocm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - GPU_TYPE=ROCM  # Set to ROCM based on device flags
+    image: comfyapi-rocm
+    container_name: comfyapi-rocm
+    ports:
+      - "${APP_LISTEN_PORT:-8000}:${APP_LISTEN_PORT:-8000}"
+      - "${COMFYUI_LISTEN_PORT:-8001}:${COMFYUI_LISTEN_PORT:-8001}"
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    security_opt:
+      - seccomp=unconfined
+    group_add:
+      - video
+    env_file:
+      - .env
+    environment:
+      COMFYUI_BASE_PATH: '/app/ComfyUI'
+    volumes:
+      - ./workflows:/app/ComfyAPI/workflows
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --spider --quiet http://${APP_LISTEN_ADDRESS:-0.0.0.0}:${APP_LISTEN_PORT:-8000}/docs || exit 1" ]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 5s
+    command: uvicorn src.api.app:app --host ${APP_LISTEN_ADDRESS:-0.0.0.0} --port ${APP_LISTEN_PORT:-8000}
