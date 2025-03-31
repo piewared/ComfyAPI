@@ -18,6 +18,8 @@ class ComfyUISettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='comfyui_', env_file=DOTENV, extra="ignore")
 
     base_path: Path
+    listen_port: int = Field(default=8188, description="Port to listen on.")
+    listen_address: str = Field(default="localhost", description="Address to listen on.")
 
     @computed_field  # type: ignore
     @property
@@ -41,6 +43,8 @@ class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='app_', env_file=DOTENV, extra="ignore")
 
     api_key: str
+    listen_port: int = Field(default=8188, description="Port to listen on.")
+    listen_address: str = Field(default="localhost", description="Address to listen on.")
 
     @field_validator('api_key', mode='after')
     @classmethod

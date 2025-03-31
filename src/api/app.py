@@ -8,6 +8,7 @@ from src.api.auth import validate_api_key
 from src.api.routers import workflows, lifecycle, websocket
 from src.comfyui.comfyui_manager import get_manager
 from src.comfyui.connection_manager import initialize_connection_manager
+from src.config import get_app_settings
 
 from src.utils.logger_config import configure_logging
 
@@ -43,4 +44,5 @@ async def root():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
+    app_settings = get_app_settings()
+    uvicorn.run(app, host=app_settings.listen_address, port=app_settings.listen_port)

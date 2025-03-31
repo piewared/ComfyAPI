@@ -106,7 +106,17 @@ def get_workflows() -> dict[str, Path]:
     workflow_files = {}
     for workflow_dir in workflows_path:
         # Combine files in all paths into a single dictionary. Note that if there are duplicate keys, the last one will be used.
-        workflow_files.update({f.stem:f for f in workflow_dir.iterdir() if f.is_file() and f.suffix == ".json"})
+        try:
+            workflow_files.update({f.stem:f for f in workflow_dir.iterdir() if f.is_file() and f.suffix == ".json"})
+        except FileNotFoundError:
+            # If the directory doesn't exist, skip it.
+            continue
+        except PermissionError:
+            # If there are permission issues, skip it.
+            continue
+        except OSError:
+            # If there are other OS errors, skip it.
+            continue
 
     # Analyze each workflow file.
     valid_workflows = {}

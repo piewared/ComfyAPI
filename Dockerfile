@@ -43,12 +43,13 @@ ENV PYTHONPATH=/app/ComfyAPI
 # Create directory for workflows
 RUN mkdir -p /app/ComfyAPI/workflows
 
-# Expose port for FastAPI
-EXPOSE 8000
+# Expose port for ComfyAPI and ComfyUI
+EXPOSE 8000 8001
+
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD curl --fail http://localhost:8000/ || exit 1
 
 # Command to run the application
-CMD ["uvicorn", "src.api.app:app", "--host", "127.0.0.1", "--port", "8000"]
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

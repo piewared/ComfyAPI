@@ -21,6 +21,8 @@ from src.config import get_comfyui_settings
 
 comfyui_logger = get_comfyui_logger()
 
+comfyui_settings = get_comfyui_settings()
+
 COMFYUI_ADDRESS_REGEX: Pattern = re.compile(r"go to: (http://\d+\.\d+\.\d+\.\d+:\d+)")
 MAX_RETRIES = 5
 RETRY_DELAY = 2  # seconds
@@ -41,9 +43,9 @@ class WorkflowTask(BaseModel):
     status: Literal["queued", "running", "completed", "failed", "interrupted"]
 
 class ComfyUIManager:
-    def __init__(self, python_path: Path, main_script: Path):
-        self.python_path = python_path
-        self.main_script = main_script
+    def __init__(self):
+        self.python_path = comfyui_settings.interpreter_path
+        self.main_script = comfyui_settings.main_path
         self.process: Optional[asyncio.subprocess.Process] = None
         self.lock = asyncio.Lock()
         self.monitor_status_task: Optional[asyncio.Task] = None
@@ -73,7 +75,8 @@ class ComfyUIManager:
                 # Create the subprocess asynchronously with decoded output.
                 self.process = await asyncio.create_subprocess_exec(
                     self.python_path,
-                    self.main_script,
+                    self.main_script, '--listen', comfyui_settings.listen_address,
+                    '--port', str(comfyui_settings.listen_port),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
@@ -359,8 +362,5 @@ class ComfyUIManager:
 
 @lru_cache(maxsize=1)
 def get_manager() -> ComfyUIManager:
-    manager = ComfyUIManager(
-        python_path=get_comfyui_settings().interpreter_path,
-        main_script=get_comfyui_settings().main_path
-    )
+    manager = ComfyUIManager()
     return manager
