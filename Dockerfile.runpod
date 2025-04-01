@@ -1,12 +1,24 @@
-FROM python:3.12-slim
+FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04 as comfyapi
+
 RUN --mount=type=cache,target=/root/.cache/pip pip install pyyaml
+
+# Clone ComfyAPI repository
+RUN git clone https://github.com/piewared/ComfyAPI.git /app/ComfyAPI
+
+# Stage 2: Build final image
+FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
+
+RUN --mount=type=cache,target=/root/.cache/pip pip install pyyaml
+
+# Copy ComfyAPI from the comfyapi stage
+COPY --from=comfyapi /app/ComfyAPI/ /app/ComfyAPI/
 
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies (git for ComfyUI, ffmpeg for video processing)
 RUN apt-get update && \
-    apt-get install -y git ffmpeg libsm6 libxext6 wget build-essential cmake && \
+    apt-get install -y git ffmpeg libsm6 libxext6 wget build-essential cmake gosu && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -27,27 +39,48 @@ RUN python -m venv .venv && \
     pip install --no-cache-dir -r requirements.txt && \
     deactivate
 
-# Copy ComfyAPI custom nodes to ComfyUI
-COPY ./custom_nodes/comfyapi_nodes /app/ComfyUI/custom_nodes/comfyapi_nodes
-
-# Return to app directory and copy ComfyAPI code
-WORKDIR /app/ComfyAPI
-COPY . /app/ComfyAPI
-
-# Install ComfyAPI dependencies
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables
 ENV COMFYUI_INSTANCE_PATH=/app/ComfyUI
 ENV COMFYUI_WORKSPACE_PATH=/app/ComfyUI
 ENV PYTHONPATH=/app/ComfyAPI
 
+ENV APP_LISTEN_ADDRESS=0.0.0.0
+ENV APP_LISTEN_PORT=8000
+ARG APP_API_KEY=GENERATE_APP_API_KEY
+ENV APP_API_KEY=${APP_API_KEY}
+
+# ComfyUI settings
+ENV COMFYUI_INSTANCE_PATH=/app/ComfyUI
+ENV COMFYUI_WORKSPACE_PATH=/app/workspace
+ENV COMFYUI_LISTEN_ADDRESS=0.0.0.0
+ENV COMFYUI_LISTEN_PORT=8001
+
+# Return to app directory and copy ComfyAPI code
+WORKDIR /app/ComfyAPI
+
+# Copy ComfyAPI custom nodes to COMFYUI_WORKSPACE_PATH/custom_nodes
+COPY ./custom_nodes/comfyapi_nodes ${COMFYUI_WORKSPACE_PATH}/custom_nodes/comfyapi_nodes
+
+# Install ComfyAPI dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create workspace directory if it doesn't exist, along with 'input', 'output', 'custom_nodes', and 'models' subdirectories
+RUN mkdir -p /app/workspace && \
+    mkdir -p /app/workspace/input && \
+    mkdir -p /app/workspace/output && \
+    mkdir -p /app/workspace/custom_nodes && \
+    mkdir -p /app/workspace/models
+
+
 # Copy the entrypoint script
 COPY ./docker_entrypoint.sh /app/ComfyAPI/docker_entrypoint.sh
+COPY ./runpod_entrypoint.sh /app/ComfyAPI/runpod_entrypoint.sh
 RUN chmod +x /app/ComfyAPI/docker_entrypoint.sh
+RUN chmod +x /app/ComfyAPI/runpod_entrypoint.sh
 
 # Set it as the entrypoint
-ENTRYPOINT ["/app/ComfyAPI/docker_entrypoint.sh"]
+ENTRYPOINT ["/app/ComfyAPI/runpod_entrypoint.sh"]
 
 # Create directory for workflows
 RUN mkdir -p /app/ComfyAPI/workflows
