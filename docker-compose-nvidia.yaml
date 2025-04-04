@@ -4,7 +4,7 @@ services:
   comfyapi-nvidia:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: deployment/Dockerfile.local
       args:
         - GPU_TYPE=CUDA  # Set to CUDA for NVIDIA GPUs
     image: comfyapi-nvidia

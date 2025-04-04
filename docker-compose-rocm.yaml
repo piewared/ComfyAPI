@@ -4,7 +4,7 @@ services:
   comfyapi-rocm:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: deployment/Dockerfile.local
       args:
         - GPU_TYPE=ROCM  # Set to ROCM based on device flags
     image: comfyapi-rocm

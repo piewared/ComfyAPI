@@ -30,6 +30,13 @@ if [ -f "$MARKER_FILE" ]; then
   fi
 fi
 
+# if ${COMFYUI_WORKSPACE_PATH} is different from ${COMFYUI_INSTANCE_PATH}, copy custom_nodes from the instance to the workspace
+if [[ "${COMFYUI_WORKSPACE_PATH}" != "${COMFYUI_INSTANCE_PATH}" ]]; then
+  if [ -d "${COMFYUI_INSTANCE_PATH}/custom_nodes" ]; then
+    mv ${COMFYUI_INSTANCE_PATH}/custom_nodes/* ${COMFYUI_WORKSPACE_PATH}/custom_nodes/
+  fi
+fi
+
 if [ "$NEEDS_INSTALL" = true ]; then
   echo "Installing custom node dependencies from $COMFYUI_WORKSPACE_PATH"
 
@@ -42,7 +49,6 @@ if [ "$NEEDS_INSTALL" = true ]; then
     echo "Error: The directory $COMFYUI_WORKSPACE_PATH/custom_nodes does not exist."
     exit 1
   fi
-
 
   # Run the function to install custom node dependencies
   python -c "import asyncio; import sys; sys.path.append('/app/ComfyAPI'); from src.comfyui.comfyui_manager import ensure_node_reqs; asyncio.run(ensure_node_reqs())"

@@ -48,7 +48,8 @@ mkdir -p "${COMFYUI_WORKSPACE_PATH}/models"
 if [[ "${COMFYUI_WORKSPACE_PATH}" != "${COMFYUI_INSTANCE_PATH}" ]]; then
   if [ -d "${COMFYUI_INSTANCE_PATH}/custom_nodes" ]; then
     #ls "${COMFYUI_INSTANCE_PATH}/custom_nodes"
-    mv ${COMFYUI_INSTANCE_PATH}/custom_nodes/* ${COMFYUI_WORKSPACE_PATH}/custom_nodes/
+    cp -r ${COMFYUI_INSTANCE_PATH}/custom_nodes/comfyapi_nodes ${COMFYUI_WORKSPACE_PATH}/custom_nodes/ && \
+    rm -rf ${COMFYUI_INSTANCE_PATH}/custom_nodes/comfyapi_nodes
   fi
 fi
 

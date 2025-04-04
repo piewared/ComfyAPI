@@ -27,9 +27,6 @@ RUN python -m venv .venv && \
     pip install --no-cache-dir -r requirements.txt && \
     deactivate
 
-# Copy ComfyAPI custom nodes to ComfyUI
-COPY ./custom_nodes/comfyapi_nodes /app/ComfyUI/custom_nodes/comfyapi_nodes
-
 # Return to app directory and copy ComfyAPI code
 WORKDIR /app/ComfyAPI
 COPY . /app/ComfyAPI
@@ -41,6 +38,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV COMFYUI_INSTANCE_PATH=/app/ComfyUI
 ENV COMFYUI_WORKSPACE_PATH=/app/ComfyUI
 ENV PYTHONPATH=/app/ComfyAPI
+
+# Copy ComfyAPI custom nodes to ComfyUI
+COPY ./custom_nodes ${COMFYUI_INSTANCE_PATH}/custom_nodes
 
 # Copy the entrypoint script
 COPY ./docker_entrypoint.sh /app/ComfyAPI/docker_entrypoint.sh

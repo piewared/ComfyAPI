@@ -53,7 +53,7 @@ WORKDIR /app/ComfyAPI
 COPY --from=comfyapi /app/ComfyAPI/ /app/ComfyAPI/
 
 # Copy ComfyAPI custom nodes to $COMFYUI_INSTANCE_PATH/custom_nodes
-COPY ./custom_nodes ${COMFYUI_INSTANCE_PATH}/custom_nodes
+COPY ./custom_nodes/. ${COMFYUI_INSTANCE_PATH}/custom_nodes/
 
 # Install ComfyAPI dependencies
 RUN pip install --no-cache-dir -r requirements.txt
