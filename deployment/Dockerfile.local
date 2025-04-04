@@ -43,7 +43,7 @@ ENV PYTHONPATH=/app/ComfyAPI
 COPY ./custom_nodes ${COMFYUI_INSTANCE_PATH}/custom_nodes
 
 # Copy the entrypoint script
-COPY ./docker_entrypoint.sh /app/ComfyAPI/docker_entrypoint.sh
+COPY ./deployment/docker_entrypoint.sh /app/ComfyAPI/docker_entrypoint.sh
 RUN chmod +x /app/ComfyAPI/docker_entrypoint.sh
 
 # Set it as the entrypoint
