@@ -60,7 +60,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 
 # Copy the entrypoint script and set it as entrypoint
-COPY ./runpod_entrypoint.sh /app/ComfyAPI/runpod_entrypoint.sh
+COPY ./deployment/runpod_entrypoint.sh /app/ComfyAPI/runpod_entrypoint.sh
 RUN chmod +x /app/ComfyAPI/runpod_entrypoint.sh
 ENTRYPOINT ["/app/ComfyAPI/runpod_entrypoint.sh"]
 
