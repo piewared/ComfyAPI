@@ -1,0 +1,78 @@
+FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04 as comfyapi
+# Clone ComfyAPI repository
+RUN git clone https://github.com/piewared/ComfyAPI.git /app/ComfyAPI
+
+# Stage 2: Build final image
+FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
+
+RUN --mount=type=cache,target=/root/.cache/pip pip install pyyaml
+
+# ComfyAPI settings
+ENV APP_LISTEN_ADDRESS=0.0.0.0
+ENV APP_LISTEN_PORT=8000
+ARG APP_API_KEY=GENERATE_APP_API_KEY
+ENV APP_API_KEY=${APP_API_KEY}
+
+# ComfyUI settings
+ENV COMFYUI_INSTANCE_PATH=/app/ComfyUI
+ENV COMFYUI_WORKSPACE_PATH=/workspace
+ENV COMFYUI_LISTEN_ADDRESS=0.0.0.0
+ENV COMFYUI_LISTEN_PORT=8001
+
+# Set other environment variables
+ENV PYTHONPATH=${COMFYUI_INSTANCE_PATH}
+
+# Install system dependencies (git for ComfyUI, ffmpeg for video processing)
+RUN apt-get update && \
+    apt-get install -y git ffmpeg libsm6 libxext6 wget build-essential cmake gosu && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Clone ComfyUI repository
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git ${COMFYUI_INSTANCE_PATH}
+
+WORKDIR /app/ComfyUI
+
+# Create a virtual environment and install ComfyUI dependencies
+# Install PyTorch - check for GPU_TYPE to determine which version to install
+ARG GPU_TYPE=CUDA
+RUN python -m venv .venv && \
+    . .venv/bin/activate && \
+    if [ "$GPU_TYPE" = "ROCM" ]; then \
+        pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2.4; \
+    else \
+        pip install --no-cache-dir torch torchvision torchaudio; \
+    fi && \
+    pip install --no-cache-dir -r requirements.txt && \
+    deactivate
+
+# Return to app directory
+WORKDIR /app/ComfyAPI
+
+# Copy ComfyAPI from the comfyapi stage
+COPY --from=comfyapi /app/ComfyAPI/ /app/ComfyAPI/
+
+# Copy ComfyAPI custom nodes to $COMFYUI_INSTANCE_PATH/custom_nodes
+COPY ./custom_nodes/. ${COMFYUI_INSTANCE_PATH}/custom_nodes/
+
+# Install ComfyAPI dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+
+# Copy the entrypoint script and set it as entrypoint
+COPY ./deployment/runpod_entrypoint.sh /app/ComfyAPI/runpod_entrypoint.sh
+RUN chmod +x /app/ComfyAPI/runpod_entrypoint.sh
+ENTRYPOINT ["/app/ComfyAPI/runpod_entrypoint.sh"]
+
+# Create directory for workflows
+RUN mkdir -p /app/ComfyAPI/workflows
+
+# Expose port for ComfyAPI and ComfyUI
+EXPOSE 8000 8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD curl --fail http://localhost:8000/ || exit 1
+
+# Command to run the application
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
