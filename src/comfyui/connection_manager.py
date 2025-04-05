@@ -138,18 +138,6 @@ class ConnectionManager:
             for callback in self._connection_close_callbacks:
                 await callback(sid)
 
-    async def _accept(self, websocket: WebSocket) -> str:
-        """
-        Accept a new client WebSocket connection and assign it a unique connection ID.
-
-        :param websocket: The client WebSocket instance.
-        :return: The generated unique connection ID.
-        """
-        await websocket.accept()
-        connection_id = str(uuid.uuid4()).replace('-', '')
-        await self._client_connections.set(connection_id, websocket)
-        return connection_id
-
     def add_connection_close_callback(self, callback: Callable[[str], Awaitable[None]]):
         """
         Register a callback to be invoked when a connection closes.
@@ -316,7 +304,9 @@ class ConnectionManager:
         :return: The unique client connection ID.
         """
         # Accept the client connection and generate a unique connection ID.
-        connection_id = await self._accept(websocket)
+        await websocket.accept()
+        connection_id = str(uuid.uuid4()).replace('-', '')
+        await self._client_connections.set(connection_id, websocket)
 
         # Start proxying messages between the client and the ComfyUI backend.
         sid = await self.proxy_comfyui_connection(websocket)
