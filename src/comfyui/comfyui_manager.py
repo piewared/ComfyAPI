@@ -94,16 +94,17 @@ class ComfyUIManager:
                                               scan_regex=COMFYUI_ADDRESS_REGEX,
                                               scan_callback=self._get_host_port)
                     ))
-                # Monitor the startup process.
-                self.stream_tasks.append(asyncio.create_task(self._wait_for_start()))
 
                 await asyncio.sleep(1)
                 if self.process.returncode is not None:
                     # Process terminated prematurely.
                     stdout, stderr = await self.process.communicate()
                     error_message = stderr.strip() or "Process terminated unexpectedly."
-                    logger.info("ComfyUI failed to start: %s", error_message)
+                    logger.error(f"ComfyUI failed to start: {error_message}")
                     return ComfyUIStatus.NOT_RUNNING
+
+                # Monitor the startup process.
+                self.stream_tasks.append(asyncio.create_task(self._wait_for_start()))
 
                 return ComfyUIStatus.STARTING
             except Exception:
@@ -194,7 +195,7 @@ class ComfyUIManager:
                 await status_callback(new_task)
 
 
-    async def connect_to_backend(self) -> tuple[str, websockets.ClientConnection]:
+    async def connect_to_backend(self, sid: str = None) -> tuple[str, websockets.ClientConnection]:
         """
         Connect to the ComfyUI deploy websocket for receiving image outputs.
         This method will retry multiple times before giving up.
@@ -203,8 +204,12 @@ class ComfyUIManager:
         for attempt in range(1, MAX_RETRIES + 1):
             backend_ws = None
             try:
-                backend_ws = await websockets.connect(
-                    f"{self._comfyui_address}/comfyui-deploy/ws".replace('http', 'ws'))
+                if sid:
+                    url = f"{self._comfyui_address}/comfy-api/ws?clientId={sid}".replace('http', 'ws')
+                else:
+                    url = f"{self._comfyui_address}/comfy-api/ws".replace('http', 'ws')
+
+                backend_ws = await websockets.connect(url)
                 message = await backend_ws.recv()
                 sid = json.loads(message).get("data").get("sid")
                 if sid:
@@ -258,8 +263,9 @@ class ComfyUIManager:
                 self.stream_tasks.append(self.monitor_status_task)
                 self.stream_tasks.append(self.monitor_ws_task)
                 return
+            logger.info("Waiting for ComfyUI to start...")
             await asyncio.sleep(1)
-        raise TimeoutError("ComfyUI failed to start within the timeout period")
+        logger.error("ComfyUI failed to start within the timeout period")
 
     def _get_host_port(self, line: str):
         """Extracts the ComfyUI address from a given line of output."""

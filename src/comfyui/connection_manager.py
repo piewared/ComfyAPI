@@ -237,23 +237,25 @@ class ConnectionManager:
         Proxy messages between the client and the ComfyUI backend.
 
         Establishes a backend connection, sets up message proxying, and handles reconnections
-        in case of errors.
+        in case of errors using exponential back-off.
 
         :param client_websocket: The client's WebSocket connection.
         :return: The server connection ID associated with the backend.
         """
+        # Initialize variables to hold the backend websocket and its server ID.
+        sid: Optional[str] = None
+        backend_ws: Optional[websockets.ClientConnection] = None
 
         async def connect_to_backend():
-            """
-            Establish a connection to the backend and start a task for proxying messages
-            from the backend to the client.
-
-            :return: A tuple of (server connection ID, backend WebSocket connection).
-            """
-            sid, backend_ws = await self._comfyui_manager.connect_to_backend()
+            nonlocal sid, backend_ws
+            sid_new, backend_ws_new = await self._comfyui_manager.connect_to_backend(sid)
+            # If sid already exists (from a previous connection), reuse it.
+            if sid is None:
+                sid = sid_new
+            backend_ws = backend_ws_new
             await self._server_connections.set(sid, backend_ws)
 
-            logger.debug(f"Starting proxy task between {client_websocket} and {backend_ws}")
+            logger.debug(f"Starting proxy task between {client_websocket} and backend {backend_ws}")
             # Start a background task to proxy backend messages to the client.
             t = asyncio.create_task(backend_to_client())
             await self._sid_task_map.set(sid, t)
@@ -261,14 +263,9 @@ class ConnectionManager:
             return sid, backend_ws
 
         async def backend_to_client():
-            """
-            Proxy messages from the backend to the client WebSocket.
-
-            Continuously receives messages from the backend and forwards them to the client.
-            In case of an error, attempts to reconnect to the backend.
-            """
-            nonlocal backend_ws
-
+            nonlocal backend_ws, sid
+            backoff = 1
+            max_backoff = 128
             while True:
                 try:
                     message = await backend_ws.recv()
@@ -278,22 +275,32 @@ class ConnectionManager:
                     else:
                         # Currently, text messages are not forwarded.
                         pass
+                    # Reset backoff after successful message receipt.
+                    backoff = 1
                 except Exception as e:
-                    logger.error("Error in backend_to_client", e)
-                    try:
-                        await self.disconnect(sid)
-                        await connect_to_backend()
-                        logger.info("Reconnected to backend in backend_to_client.")
-                    except Exception as re:
-                        logger.error("Reconnection failed in backend_to_client: %s", re)
-                        await client_websocket.send_text(json.dumps({"error": "Lost connection to backend"}))
-                        break
+                    logger.error("Error in backend_to_client for sid %s: %s", sid, e)
+                    # Attempt to reconnect using exponential back-off.
+                    while True:
+                        try:
+                            logger.info(f"Attempting to reconnect to backend for sid {sid} in {backoff} seconds...")
+                            await asyncio.sleep(backoff)
+                            # Attempt to reconnect.
+                            _, new_backend_ws = await self._comfyui_manager.connect_to_backend(sid)
+                            # Reuse the original sid and update the backend websocket.
+                            backend_ws = new_backend_ws
+                            await self._server_connections.set(sid, backend_ws)
+                            logger.info(f"Successfully reconnected to backend for sid {sid}")
+                            backoff = 1  # Reset backoff after success.
+                            break  # Break out of the reconnection loop.
+                        except Exception as reconnect_exception:
+                            logger.error("Reconnection attempt failed for sid %s: %s", sid, reconnect_exception)
+                            backoff = min(backoff * 2, max_backoff)
+                    # After reconnection, resume receiving messages.
 
-        # Establish connection to the backend and start message proxying.
         sid, backend_ws = await connect_to_backend()
         return sid
 
-    async def accept_client_connection(self, websocket: WebSocket) -> str:
+    async def accept_client_connection(self, websocket: WebSocket, cid: str = None) -> str:
         """
         Accept and initialize a client WebSocket connection.
 
@@ -301,15 +308,42 @@ class ConnectionManager:
         to the client, and maintains the mapping between client and server IDs.
 
         :param websocket: The client WebSocket connection.
+        :param cid: Optional client connection ID to re-use existing connection id (if provided).
         :return: The unique client connection ID.
         """
         # Accept the client connection and generate a unique connection ID.
         await websocket.accept()
-        connection_id = str(uuid.uuid4()).replace('-', '')
+
+        if cid:
+            # Reusing existing session, remove old
+            connection_id = cid
+        else:
+            connection_id = str(uuid.uuid4()).replace('-', '')
+
         await self._client_connections.set(connection_id, websocket)
 
-        # Start proxying messages between the client and the ComfyUI backend.
-        sid = await self.proxy_comfyui_connection(websocket)
+        # If we already have a corresponding server connection, reuse it.
+        sid = self._cid_sid_map.get(connection_id)
+        if sid and sid in self._server_connections:
+            backend_ws = await self._server_connections.get(sid)
+            if backend_ws:
+                # Check if the backend connection is still open.
+                if backend_ws.state == websockets.protocol.State.CLOSED:
+                    logger.debug(f"Backend connection {sid} is closed, creating a new one.")
+                    sid = await self.proxy_comfyui_connection(websocket)
+                else:
+                    # Backend connection is still open, reuse it. No need to create a new connection.
+                    logger.debug(f"Reusing existing server connection {sid} for client {connection_id}.")
+                    sid = sid
+            else:
+                # Shouldn't happen, but if the backend connection is not found, create a new one.
+                logger.debug(f"Backend connection {sid} not found, creating a new one.")
+                sid = await self.proxy_comfyui_connection(websocket)
+
+        else:
+            # Create a new server connection.
+            logger.debug(f"Creating new server connection for client {connection_id}.")
+            sid = await self.proxy_comfyui_connection(websocket)
 
         # Maintain the mapping between client and server connection IDs.
         self._cid_sid_map[connection_id] = sid

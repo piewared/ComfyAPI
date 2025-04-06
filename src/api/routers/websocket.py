@@ -12,15 +12,16 @@ router = APIRouter(
 
 
 @router.websocket("/register")
-async def ws_register(websocket: WebSocket, client_manager: ConnectionManager = Depends(get_connection_manager),
+async def ws_register(websocket: WebSocket, client_id: str = None, client_manager: ConnectionManager = Depends(get_connection_manager),
                       ip_address: str = Depends(get_client_ip)):
     """
     Register a new websocket connection.
     :param ip_address:
+    :param client_id:
     :param websocket:
     :param client_manager:
     :return:
     """
     # Delegate connection handling to the connection manager.
-    connection_id = await client_manager.accept_client_connection(websocket)
+    connection_id = await client_manager.accept_client_connection(websocket, client_id)
     await client_manager.handle_client_connection(connection_id)

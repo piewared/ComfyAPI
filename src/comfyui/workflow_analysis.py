@@ -66,19 +66,14 @@ def analyze_workflow(workflow_id: str, workflow_path: Path) -> WorkflowDescripto
             external_parameters[node_id] = ext_params
 
     # Get ComfyUI deploy input nodes
-    input_nodes = {n_id: n for n_id, n in nodes_by_id.items() if n["class_type"].startswith("ComfyUIDeployExternal")}
-    output_nodes = {n_id: n for n_id, n in nodes_by_id.items() if
-                    n["class_type"].startswith("ComfyDeployWebscoketImageOutput") or
-                    n["class_type"].startswith("ComfyDeployWebsocketImageOutput") or
-                    n["class_type"].startswith("ComfyUIDeployWebscoketImageOutput") or
-                    n["class_type"].startswith("ComfyUIDeployWebsocketImageOutput")
-                    }
+    input_nodes = {n_id: n for n_id, n in nodes_by_id.items() if n["class_type"].startswith("ComfyApiImageInput")}
+    output_nodes = {n_id: n for n_id, n in nodes_by_id.items() if n["class_type"].startswith("ComfyApiImageOutput")}
 
     return WorkflowDescriptor(workflow_id=workflow_id, nodes=nodes_by_id, edges=edges, source_ids=sources,
                               sink_ids=sinks, workflow_json=workflow,
                               external_parameters=external_parameters,
                               inputs=[WorkflowInput(node_id=in_node_id, node_type=in_node['class_type'],
-                                                    value=in_node['inputs']['input_id'],
+                                                    value=in_node['inputs']['url'],
                                                     display_name=in_node['inputs']['display_name'],
                                                     description=in_node['inputs']['description']) for
                                       in_node_id, in_node in input_nodes.items()],
