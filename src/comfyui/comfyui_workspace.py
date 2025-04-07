@@ -23,7 +23,7 @@ def calculate_custom_nodes_hash() -> str:
     workspace_path = comfyui_settings.workspace_path
     custom_nodes_path = workspace_path.joinpath("custom_nodes")
 
-    if not os.path.exists(custom_nodes_path):
+    if not custom_nodes_path.exists() or not custom_nodes_path.is_dir():
         return hashlib.md5("".encode()).hexdigest()
 
     requirements_files = glob.glob(os.path.join(custom_nodes_path, "**", "requirements.txt"), recursive=True)
@@ -44,23 +44,83 @@ def calculate_custom_nodes_hash() -> str:
     return hashlib.md5(combined_content.encode()).hexdigest()
 
 
-async def _install_workspace_dependencies() -> None:
-    # Ensure workspace directory exists
-    os.makedirs(workspace_meta_dir, exist_ok=True)
+def setup_dependency_database(db_path: Path) -> None:
+    """
+    Create the dependency database and required tables if they don't exist.
 
-    # Create database if it doesn't exist
+    Args:
+        db_path: Path to the SQLite database file
+    """
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS dependency_status (
+            workspace_hash TEXT PRIMARY KEY,
+            installed BOOLEAN NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        conn.commit()
+
+
+def is_dependencies_installed(db_path: Path, workspace_hash: str) -> bool:
+    """
+    Check if dependencies for a specific workspace hash are already installed.
+
+    Args:
+        db_path: Path to the SQLite database file
+        workspace_hash: Hash of the workspace to check
+
+    Returns:
+        True if dependencies are installed, False otherwise
+    """
+    if not db_path.exists():
+        return False
+
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT installed FROM dependency_status WHERE workspace_hash = ?", (workspace_hash,))
+            result = cursor.fetchone()
+            return bool(result and result[0])
+    except sqlite3.Error as e:
+        logger.error(f"Database error: {e}")
+        return False
+
+
+def update_dependency_status(db_path: Path, workspace_hash: str, installed: bool) -> None:
+    """
+    Update the installation status for a workspace hash in the database.
+
+    Args:
+        db_path: Path to the SQLite database file
+        workspace_hash: Hash of the workspace to update
+        installed: Installation status to set
+    """
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO dependency_status (workspace_hash, installed, timestamp) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                (workspace_hash, installed)
+            )
+            conn.commit()
+    except sqlite3.Error as e:
+        logger.error(f"Failed to update dependency status: {e}")
+
+
+async def _install_workspace_dependencies() -> None:
+    """Check and install workspace dependencies if needed."""
+    # Ensure workspace directory exists
+    workspace_meta_dir.mkdir(parents=True, exist_ok=True)
+
+    # Set up the database path
     db_path = workspace_meta_dir.joinpath(".dependencies.db")
 
-    # Create db and table if they don't exist
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS dependency_status (
-        workspace_hash TEXT PRIMARY KEY,
-        installed BOOLEAN NOT NULL
-    )
-    ''')
-    conn.commit()
+    # Initialize database if needed
+    setup_dependency_database(db_path)
 
     # Copy custom nodes if workspace path is different from instance path
     instance_path = comfyui_settings.instance_path
@@ -70,12 +130,11 @@ async def _install_workspace_dependencies() -> None:
         instance_custom_nodes = instance_path.joinpath("custom_nodes")
         workspace_custom_nodes = workspace_path.joinpath("custom_nodes")
 
-        if os.path.exists(instance_custom_nodes) and os.path.isdir(instance_custom_nodes):
-            if os.path.exists(instance_custom_nodes.joinpath("comfyapi_nodes")):
-                import shutil
-                source = instance_custom_nodes.joinpath("comfyapi_nodes")
+        if instance_custom_nodes.exists() and instance_custom_nodes.is_dir():
+            comfyapi_source = instance_custom_nodes.joinpath("comfyapi_nodes")
+            if comfyapi_source.exists():
                 destination = workspace_custom_nodes.joinpath("comfyapi_nodes")
-                shutil.copytree(source, destination, dirs_exist_ok=True)
+                shutil.copytree(comfyapi_source, destination, dirs_exist_ok=True)
 
     # Calculate current hash
     current_hash = calculate_custom_nodes_hash()
@@ -84,35 +143,25 @@ async def _install_workspace_dependencies() -> None:
         logger.warning("No requirements.txt files found or custom_nodes directory doesn't exist")
         return
 
-    # Check if hash exists in database and is marked as installed
-    cursor.execute("SELECT installed FROM dependency_status WHERE workspace_hash = ?", (current_hash,))
-    result = cursor.fetchone()
-
-    needs_install = True
-    if result and result[0]:
+    # Check if dependencies need to be installed
+    if is_dependencies_installed(db_path, current_hash):
         logger.info("Dependencies previously installed and custom_nodes unchanged. Skipping installation.")
-        needs_install = False
-    else:
-        logger.info("Custom nodes have changed or dependencies not yet installed. Installing dependencies...")
+        return
 
-    if needs_install:
-        try:
-            # Install dependencies
-            from src.comfyui.comfyui_manager import ensure_node_reqs
-            await ensure_node_reqs()
+    logger.info("Custom nodes have changed or dependencies not yet installed. Installing dependencies...")
 
-            # Update database with success status
-            cursor.execute("INSERT OR REPLACE INTO dependency_status (workspace_hash, installed) VALUES (?, ?)",
-                           (current_hash, True))
-            conn.commit()
-            logger.info("Custom node dependencies installation completed.")
-        except Exception as e:
-            logger.info(f"Error installing dependencies: {e}")
-            cursor.execute("INSERT OR REPLACE INTO dependency_status (workspace_hash, installed) VALUES (?, ?)",
-                           (current_hash, False))
-            conn.commit()
+    try:
+        # Install dependencies
+        from src.comfyui.comfyui_manager import ensure_node_reqs
+        await ensure_node_reqs()
 
-    conn.close()
+        # Update database with success status
+        update_dependency_status(db_path, current_hash, True)
+        logger.info("Custom node dependencies installation completed.")
+
+    except Exception as e:
+        logger.error(f"Error installing dependencies: {e}")
+        update_dependency_status(db_path, current_hash, False)
 
 
 async def _get_workspace_paths() -> list[Path]:
@@ -134,7 +183,7 @@ async def _get_workspace_paths() -> list[Path]:
         workspace_files.append(dir_path)
 
         # Walk through this specific directory
-        for root, dirs, files in os.walk(dir_path):
+        for root, dirs, files in dir_path.walk():
             # Skip hidden directories
             dirs[:] = [d for d in dirs if not d.startswith('.')]
             # Skip hidden files
@@ -162,7 +211,7 @@ async def delete_workspace() -> None:
     workspace_paths = await _get_workspace_paths()
     for file_path in workspace_paths:
         if file_path.is_file():
-            os.remove(file_path)
+            file_path.unlink(missing_ok=True)
         elif file_path.is_dir():
             shutil.rmtree(file_path, ignore_errors=True)
 
@@ -180,7 +229,7 @@ async def backup_workspace() -> Path:
     # Start by moving all non-hidden files to a temp directory under workspace_meta_dir
     tmp_backup_dir = workspace_meta_dir.joinpath("tmp_backup")
     # Clean the temporary directory if it exists
-    if os.path.exists(tmp_backup_dir):
+    if tmp_backup_dir.exists():
         shutil.rmtree(tmp_backup_dir, ignore_errors=True)
 
     # Create the temporary directory
@@ -204,11 +253,11 @@ async def backup_workspace() -> Path:
 
         if file_path.is_dir():
             # Move the directory
-            os.makedirs(target_dir, exist_ok=True)
+            target_dir.mkdir(parents=True, exist_ok=True)
 
         if target_file:
             # Move the file
-            os.makedirs(target_dir, exist_ok=True)
+            target_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(str(file_path), str(target_file))
 
 
@@ -252,7 +301,7 @@ async def restore_workspace() -> None:
     backup_to_restore = backups[0]
 
     # Extract the backup checksum from the filename
-    backup_checksum = os.path.splitext(os.path.splitext(backup_to_restore.name)[0])[0]
+    backup_checksum = backup_to_restore.stem.split(".")[0]
     logger.info(f"Restoring workspace from backup: {backup_to_restore} (checksum: {backup_checksum})")
 
     # Extract to temporary directory
@@ -268,7 +317,7 @@ async def restore_workspace() -> None:
         tar.extractall(path=temp_extract_dir)
 
     # Get the directory inside temp_extract_dir (should be tmp_backup)
-    extract_contents = os.listdir(temp_extract_dir)
+    extract_contents = list(temp_extract_dir.iterdir())
     if not extract_contents:
         logger.error("Extracted backup is empty")
         return
@@ -287,19 +336,19 @@ async def restore_workspace() -> None:
     await delete_workspace()
 
     # Move contents from extracted dir to workspace
-    for item in os.listdir(extracted_dir):
-        s = extracted_dir.joinpath(item)
-        d = comfyui_settings.workspace_path.joinpath(item)
-        if os.path.exists(d):
-            if os.path.isdir(d):
+    for item in extracted_dir.iterdir():
+        s = item
+        d = comfyui_settings.workspace_path.joinpath(item.name)
+        if d.exists():
+            if d.is_dir():
                 shutil.rmtree(d)
             else:
-                os.remove(d)
+                d.unlink()
         shutil.move(s, d)
 
     # Clean up
     shutil.rmtree(temp_extract_dir, ignore_errors=True)
-    os.remove(backup_to_restore)
+    backup_to_restore.unlink(missing_ok=True)  # Remove the backup file
 
     logger.info("Workspace restored successfully")
 
@@ -322,15 +371,15 @@ async def set_workspace(new_workspace_tar: bytes | BytesIO) -> None:
     # temp directory to the workspace path
     backup_path = await backup_workspace()
 
-    for item in os.listdir(tmp_extract_path):
-        s = tmp_extract_path.joinpath(item)
-        d = comfyui_settings.workspace_path.joinpath(item)
+    for item in tmp_extract_path.iterdir():
+        s = item
+        d = comfyui_settings.workspace_path.joinpath(item.name)
 
-        if os.path.exists(d):
-            if os.path.isdir(d):
+        if d.exists():
+            if d.is_dir():
                 shutil.rmtree(d)
             else:
-                os.remove(d)
+                d.unlink()
 
         shutil.move(s, d)
 
@@ -351,7 +400,7 @@ async def get_workspace() -> bytes:
     tar_bytes = io.BytesIO()
     with tarfile.open(fileobj=tar_bytes, mode='w:gz') as tar:
         for file_path in workspace_files:
-            tar.add(file_path, arcname=os.path.relpath(file_path, comfyui_settings.workspace_path))
+            tar.add(file_path, arcname=file_path.relative_to(comfyui_settings.workspace_path))
 
     # Return the tar file as bytes
     return tar_bytes.getvalue()
@@ -366,7 +415,7 @@ async def ensure_workspace_initialized() -> None:
     dirs = [workspace_path.joinpath(d) for d in workspace_dirs]
 
     for directory in dirs:
-        os.makedirs(directory, exist_ok=True)
+        directory.mkdir(parents=True, exist_ok=True)
 
     # Check and install dependencies
     await _install_workspace_dependencies()
@@ -377,5 +426,10 @@ if __name__ == "__main__":
     asyncio.run(ensure_workspace_initialized())
     # asyncio.run(set_workspace(Path("/path/to/new/workspace")))
     # asyncio.run(delete_workspace())
-    asyncio.run(backup_workspace())
-    asyncio.run(restore_workspace())
+    #asyncio.run(backup_workspace())
+    #asyncio.run(restore_workspace())
+
+    #ws = asyncio.run(get_workspace())
+    #asyncio.run(backup_workspace())
+    #asyncio.run(set_workspace(ws))
+    #print(ws)
