@@ -14,6 +14,7 @@ import websockets
 from loguru import logger
 from pydantic import BaseModel
 
+from src.comfyui.comfyui_workspace import set_workspace, ensure_workspace_initialized
 from src.utils.collections import TimeoutMap
 from src.utils.logger_config import get_comfyui_logger
 from src.comfyui.workflow_analysis import WorkflowDescriptor
@@ -65,6 +66,7 @@ class ComfyUIManager:
         Start the ComfyUI process.
         :return:
         """
+        await ensure_workspace_initialized()
         async with self.lock:
             if await self._check_if_running():
                 logger.info("ComfyUI is already running")
@@ -145,6 +147,11 @@ class ComfyUIManager:
 
 
             return ComfyUIStatus.NOT_RUNNING
+
+    async def change_workspace(self, workspace_tar: bytes) -> None:
+        await self.stop()
+        await set_workspace(workspace_tar)
+        await self.start()
 
     async def status(self) -> ComfyUIStatus:
         async with self.lock:
@@ -366,19 +373,6 @@ class ComfyUIManager:
 
         raise ConnectionError("Failed to connect to backend after multiple attempts.")
 
-async def ensure_node_reqs():
-    python_path = comfyui_settings.interpreter_path
-    # Go through all the node directories under 'custom_nodes' in comfyui_settings.workspace_path, and pip install the requirements.txt file if it exists.
-    for node_dir in (comfyui_settings.workspace_path / "custom_nodes").iterdir():
-        if node_dir.is_dir():
-            requirements_file = node_dir / "requirements.txt"
-            if requirements_file.exists():
-                logger.info(f"Installing requirements for {node_dir.name}")
-                cmd = [str(python_path), "-m", "pip", "install", "-r", str(requirements_file)]
-                process = await asyncio.create_subprocess_exec(*cmd)
-                await process.wait()
-                if process.returncode != 0:
-                    logger.error(f"Failed to install requirements for {node_dir.name}")
 
 
 @lru_cache(maxsize=1)
