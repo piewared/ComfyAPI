@@ -11,7 +11,7 @@ help:
 	@echo "  docker-nvidia         Build Docker image for NVIDIA GPUs"
 	@echo "  docker-rocm           Build Docker image for AMD ROCm GPUs"
 	@echo "  docker-local-start    Start local Docker service based on detected GPU type"
-	@echo "  help                  Show this help message"
+	@echo "  help                  Show this help message."
 
 # Build and push the RunPod Docker image
 docker-runpod:

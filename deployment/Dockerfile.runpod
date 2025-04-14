@@ -44,7 +44,10 @@ RUN python -m venv .venv && \
 
 # Return to app directory and copy ComfyAPI code
 WORKDIR /app/ComfyAPI
-COPY . /app/ComfyAPI
+COPY ./src /app/ComfyAPI/src
+COPY ./custom_nodes /app/ComfyAPI/custom_nodes
+COPY ./requirements.txt /app/ComfyAPI/requirements.txt
+COPY ./workflows /app/ComfyAPI/workflows
 
 # Copy ComfyAPI custom nodes to $COMFYUI_INSTANCE_PATH/custom_nodes
 COPY ./custom_nodes/. ${COMFYUI_INSTANCE_PATH}/custom_nodes/

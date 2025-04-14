@@ -29,7 +29,10 @@ RUN python -m venv .venv && \
 
 # Return to app directory and copy ComfyAPI code
 WORKDIR /app/ComfyAPI
-COPY . /app/ComfyAPI
+COPY ./src /app/ComfyAPI/src
+COPY ./custom_nodes /app/ComfyAPI/custom_nodes
+COPY ./requirements.txt /app/ComfyAPI/requirements.txt
+COPY ./workflows /app/ComfyAPI/workflows
 
 # Install ComfyAPI dependencies
 RUN pip install --no-cache-dir -r requirements.txt
