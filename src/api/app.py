@@ -5,7 +5,7 @@ from fastapi import FastAPI, Depends
 import uvicorn
 
 from src.api.auth import validate_api_key
-from src.api.routers import workflows, lifecycle, websocket
+from src.api.routers import workflows, lifecycle, websocket, workspace
 from src.comfyui.comfyui_manager import get_manager
 from src.comfyui.connection_manager import initialize_connection_manager
 from src.config import get_app_settings
@@ -33,6 +33,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(workflows.router, dependencies=[Depends(validate_api_key)])
 app.include_router(lifecycle.router, dependencies=[Depends(validate_api_key)])
+app.include_router(workspace.router, dependencies=[Depends(validate_api_key)])
 app.include_router(websocket.router)
 
 configure_logging()
