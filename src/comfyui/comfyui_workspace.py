@@ -127,20 +127,23 @@ def update_dependency_status(db_path: Path, workspace_hash: str, installed: bool
 
 async def install_workspace_dependencies() -> None:
     """Check and install workspace dependencies if needed."""
+    logger.info("Checking workspace dependencies...")
+
     # Ensure workspace directory exists
     workspace_meta_dir.mkdir(parents=True, exist_ok=True)
 
-    # Set up the database path
+    # Set up the database path and create the database if it doesn't exist
+    logger.info("Setting up dependency database...")
     db_path = workspace_meta_dir.joinpath(".dependencies.db")
-
-    # Initialize database if needed
     setup_dependency_database(db_path)
 
     # Copy custom nodes if workspace path is different from instance path
     instance_path = comfyui_settings.instance_path
     workspace_path = comfyui_settings.workspace_path
 
+    # Check if the instance path is different from the workspace path
     if instance_path != workspace_path:
+        logger.info(f"Copying custom nodes from {instance_path} to {workspace_path}")
         instance_custom_nodes = instance_path.joinpath("custom_nodes")
         workspace_custom_nodes = workspace_path.joinpath("custom_nodes")
 
@@ -151,6 +154,8 @@ async def install_workspace_dependencies() -> None:
                 if not target_dir.exists():
                     shutil.copytree(node_dir, target_dir)
                     logger.info(f"Copied {node_dir} to {target_dir}")
+    else:
+        logger.info("Instance path is the same as workspace path. No copying needed.")
 
 
     # Calculate current hash
@@ -188,9 +193,11 @@ async def ensure_workspace_initialized() -> None:
     dirs = [workspace_path.joinpath(d) for d in workspace_dirs]
 
     for directory in dirs:
+        logger.info(f"Creating directory: {directory}")
         directory.mkdir(parents=True, exist_ok=True)
 
     # Check and install dependencies
+    logger.info("Checking and installing workspace dependencies...")
     await install_workspace_dependencies()
 
 

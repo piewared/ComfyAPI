@@ -66,7 +66,9 @@ class ComfyUIManager:
         Start the ComfyUI process.
         :return:
         """
+        logger.info("Ensuring workspace is initialized")
         await ensure_workspace_initialized()
+
         async with self.lock:
             if await self._check_if_running():
                 logger.info("ComfyUI is already running")
