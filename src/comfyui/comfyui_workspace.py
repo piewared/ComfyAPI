@@ -138,13 +138,13 @@ async def install_workspace_dependencies() -> None:
     setup_dependency_database(db_path)
 
     # Copy custom nodes if workspace path is different from instance path
-    instance_path = comfyui_settings.instance_path
+    install_path = comfyui_settings.install_path
     workspace_path = comfyui_settings.workspace_path
 
     # Check if the instance path is different from the workspace path
-    if instance_path != workspace_path:
-        logger.info(f"Copying custom nodes from {instance_path} to {workspace_path}")
-        instance_custom_nodes = instance_path.joinpath("custom_nodes")
+    if install_path != workspace_path:
+        logger.info(f"Copying custom nodes from {install_path} to {workspace_path}")
+        instance_custom_nodes = install_path.joinpath("custom_nodes")
         workspace_custom_nodes = workspace_path.joinpath("custom_nodes")
 
         # Copy each directory under 'custom_nodes' to the workspace path, if it doesn't exist

@@ -38,12 +38,12 @@ COPY ./workflows /app/ComfyAPI/workflows
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables
-ENV COMFYUI_INSTANCE_PATH=/app/ComfyUI
+ENV COMFYUI_INSTALL_PATH=/app/ComfyUI
 ENV COMFYUI_WORKSPACE_PATH=/app/ComfyUI
 ENV PYTHONPATH=/app/ComfyAPI
 
 # Copy ComfyAPI custom nodes to ComfyUI
-COPY ./custom_nodes ${COMFYUI_INSTANCE_PATH}/custom_nodes
+COPY ./custom_nodes ${COMFYUI_INSTALL_PATH}/custom_nodes
 
 # Copy the entrypoint script
 COPY ./deployment/docker_entrypoint.sh /app/ComfyAPI/docker_entrypoint.sh

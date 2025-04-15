@@ -10,13 +10,13 @@ ARG APP_API_KEY=GENERATE_APP_API_KEY
 ENV APP_API_KEY=${APP_API_KEY}
 
 # ComfyUI settings
-ENV COMFYUI_INSTANCE_PATH=/app/ComfyUI
+ENV COMFYUI_INSTALL_PATH=/app/ComfyUI
 ENV COMFYUI_WORKSPACE_PATH=/workspace
 ENV COMFYUI_LISTEN_ADDRESS=0.0.0.0
 ENV COMFYUI_LISTEN_PORT=8001
 
 # Set other environment variables
-ENV PYTHONPATH=${COMFYUI_INSTANCE_PATH}
+ENV PYTHONPATH=${COMFYUI_INSTALL_PATH}
 
 # Install system dependencies (git for ComfyUI, ffmpeg for video processing)
 RUN apt-get update && \
@@ -25,7 +25,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Clone ComfyUI repository
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git ${COMFYUI_INSTANCE_PATH}
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git ${COMFYUI_INSTALL_PATH}
 
 WORKDIR /app/ComfyUI
 
@@ -50,7 +50,7 @@ COPY ./requirements.txt /app/ComfyAPI/requirements.txt
 COPY ./workflows /app/ComfyAPI/workflows
 
 # Copy ComfyAPI custom nodes to $COMFYUI_INSTANCE_PATH/custom_nodes
-COPY ./custom_nodes/. ${COMFYUI_INSTANCE_PATH}/custom_nodes/
+COPY ./custom_nodes/. ${COMFYUI_INSTALL_PATH}/custom_nodes/
 
 # Install ComfyAPI dependencies
 RUN pip install --no-cache-dir -r requirements.txt

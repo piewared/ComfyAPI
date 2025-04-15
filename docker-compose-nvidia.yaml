@@ -18,7 +18,7 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
-      COMFYUI_INSTANCE_PATH: '/app/ComfyUI'
+      COMFYUI_INSTALL_PATH: '/app/ComfyUI'
       COMFYUI_WORKSPACE_PATH: '/app/comfyui_workspace'
     volumes:
       - ${COMFYUI_WORKSPACE_PATH}:/app/comfyui_workspace
